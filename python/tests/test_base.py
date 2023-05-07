@@ -42,7 +42,6 @@ class TestVendBase(TestVend):
         symbol = c.parse_symbol(r)
         self.assertEqual(symbol, 'FOOVEND')
         
-    
     def test_vend_token(self):
         nonce_oracle = RPCNonceOracle(self.accounts[0], conn=self.conn)
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
@@ -54,7 +53,7 @@ class TestVendBase(TestVend):
         vended_token_address = c.parse_token(r)
 
         vend_amount = 100
-        src_amount = vend_amount * (10 ** self.token_decimals)
+        src_amount = vend_amount * (10 ** (self.token_decimals))
         c = GiftableToken(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
         (tx_hash, o) = c.mint_to(self.token_address, self.accounts[0], self.alice, src_amount)
         self.rpc.do(o)
@@ -64,7 +63,21 @@ class TestVendBase(TestVend):
 
         nonce_oracle = RPCNonceOracle(self.alice, conn=self.conn)
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.mint_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.get_for(self.vend_address, self.alice, vended_token_address)
+        self.rpc.do(o)
+        o = receipt(tx_hash)
+        r = self.rpc.do(o)
+        self.assertEqual(r['status'], 0)
+
+        c = ERC20(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
+        (tx_hash, o) = c.approve(self.token_address, self.alice, self.vend_address, src_amount)
+        self.rpc.do(o)
+        o = receipt(tx_hash)
+        r = self.rpc.do(o)
+        self.assertEqual(r['status'], 1)
+
+        c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
+        (tx_hash, o) = c.get_for(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)
@@ -79,7 +92,37 @@ class TestVendBase(TestVend):
         o = c.balance_of(self.token_address, self.alice, sender_address=self.accounts[0])
         r = self.rpc.do(o)
         balance = c.parse_balance(r)
+        self.assertEqual(balance, 0)
+
+        c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
+        (tx_hash, o) = c.withdraw_for(self.vend_address, self.alice, vended_token_address)
+        self.rpc.do(o)
+        o = receipt(tx_hash)
+        r = self.rpc.do(o)
+        self.assertEqual(r['status'], 0)
+
+        c = ERC20(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
+        (tx_hash, o) = c.approve(vended_token_address, self.alice, self.vend_address, vend_amount)
+        self.rpc.do(o)
+
+        c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
+        (tx_hash, o) = c.withdraw_for(self.vend_address, self.alice, vended_token_address)
+        self.rpc.do(o)
+        o = receipt(tx_hash)
+        r = self.rpc.do(o)
+        self.assertEqual(r['status'], 1)
+
+        c = ERC20(self.chain_spec)
+        o = c.balance_of(vended_token_address, self.alice, sender_address=self.accounts[0])
+        r = self.rpc.do(o)
+        balance = c.parse_balance(r)
+        self.assertEqual(balance, 0)
+
+        o = c.balance_of(self.token_address, self.alice, sender_address=self.accounts[0])
+        r = self.rpc.do(o)
+        balance = c.parse_balance(r)
         self.assertEqual(balance, src_amount)
+
 
 
 if __name__ == '__main__':

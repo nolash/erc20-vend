@@ -8,40 +8,71 @@ pragma solidity ^0.8.0;
 import "GiftableToken.sol";
 
 contract ERC20Vend {
+	address owner;
 	uint256 constant UINT256_MAX = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 	address controlToken;
 	uint8 controlDecimals;
 	uint8 decimals;
+	uint256 supply;
 	uint256 decimalDivisor;
-	bool lock;
+	mapping ( address => uint256 ) returned;
 	GiftableToken[] vendToken;
 	mapping ( address => mapping ( address => uint256 ) ) used;
 
-	event TokenCreated(uint256 indexed _idx, address _token);
+	mapping(address => bool) writers;
 
-	constructor(address _controlToken, uint8 _decimals, bool _lock) {
+	event TokenCreated(uint256 indexed _idx, uint256 indexed _supply, address _token);
+
+	constructor(address _controlToken, uint8 _decimals, bool _mint) {
 		bool r;
 		bytes memory v;
 
 		controlToken = _controlToken;
 		decimals = _decimals;
-		lock = _lock;
 
 		(r, v) = controlToken.call(abi.encodeWithSignature("decimals()"));
 		require(r, "ERR_TOKEN");
 		controlDecimals = abi.decode(v, (uint8));
 		require(controlDecimals >= decimals);
 
+		if (!_mint) {
+			(r, v) = controlToken.call(abi.encodeWithSignature("totalSupply()"));
+			require(r, "ERR_TOKEN");
+			supply = abi.decode(v, (uint256));
+		}
+
 		decimalDivisor = (10 ** (controlDecimals - _decimals));
 		if (decimalDivisor == 0) {
 			decimalDivisor = 1;
 		}
+		owner = msg.sender;
 	}
 
+	// Implements Writer
+	function addWriter(address _minter) public returns (bool) {
+		require(msg.sender == owner);
+		writers[_minter] = true;
+		return true;
+	}
+
+	// Implements Writer
+	function deleteWriter(address _minter) public returns (bool) {
+		require(msg.sender == owner || msg.sender == _minter);
+		writers[_minter] = false;
+		return true;
+	}
+
+	// Implements Writer
+	function isWriter(address _minter) public view returns(bool) {
+		return writers[_minter] || _minter == owner;
+	}
+
+	// Retrieve address of vended token by sequential index.
 	function getTokenByIndex(uint256 _idx) public view returns(address) {
 		return address(vendToken[_idx]);
 	}
 
+	// Create a new vended token.
 	function create(string calldata _name, string calldata _symbol) public returns (address) {
 		GiftableToken l_contract;
 		address l_address;
@@ -51,11 +82,16 @@ contract ERC20Vend {
 		l_address = address(l_contract);
 		l_idx = vendToken.length;
 		vendToken.push(l_contract);
-		emit TokenCreated(l_idx, l_address);
+
+		if (supply > 0) {
+			l_contract.mintTo(address(this), supply);
+		}
+		emit TokenCreated(l_idx, supply, l_address);
 		return l_address;
 	}
 
-	function mintFor(address _token) public returns (uint256) {
+	// Receive the vended token for the currently held balance.
+	function getFor(address _token) public returns (uint256) {
 		GiftableToken l_token;
 		bool r;
 		bytes memory v;
@@ -75,27 +111,34 @@ contract ERC20Vend {
 			return 0;
 		}
 
-		if (lock) {
-			(r, v) = controlToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_controlBalance));
-			require(r, "ERR_TOKEN");
-			r = abi.decode(v, (bool));
-			require(r, "ERR_TOKEN_TRANSFER");
-			used[msg.sender][address(l_token)] = l_controlBalance;
-		} else {
-			used[msg.sender][address(l_token)] = UINT256_MAX;
-		}
+		(r, v) = controlToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_controlBalance));
+		require(r, "ERR_TOKEN");
+		r = abi.decode(v, (bool));
+		require(r, "ERR_TOKEN_TRANSFER");
+		used[msg.sender][address(l_token)] = l_controlBalance;
 
 		if (decimalDivisor == 0) {
 			l_ratioedValue = l_controlBalance;
 		} else {
 			l_ratioedValue = l_controlBalance / decimalDivisor;
 		}
-		if (!l_token.mintTo(msg.sender, l_ratioedValue)) {
-			revert("ERR_MINT");
+
+		if (supply == 0) {
+			if (!l_token.mintTo(msg.sender, l_ratioedValue)) {
+				revert("ERR_MINT");
+			}
+		} else {
+			(r, v) = _token.call(abi.encodeWithSignature("transfer(address,uint256)", msg.sender, l_ratioedValue));
+			require(r, "ERR_TOKEN");
+			r = abi.decode(v, (bool));
+			require(r, "ERR_VEND_TOKEN_TRANSFER");
 		}
 		return l_ratioedValue;
 	}
 
+	// If contract locks exchanged tokens, this can be called to retrieve the locked tokens.
+	// The vended token balance MUST match the original balance emitted on the exchange.
+	// The caller must have given allowance for the full amount.
 	function withdrawFor(address _token) public returns (uint256) {
 		bool r;
 		bytes memory v;
@@ -110,12 +153,15 @@ contract ERC20Vend {
 		l_vendBalance = checkLock(_token, msg.sender);
 		used[msg.sender][_token] = UINT256_MAX;
 
-		if (l_vendBalance < UINT256_MAX) {	
-			(r, v) = _token.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_vendBalance));
-			require(r, "ERR_TOKEN");
-			r = abi.decode(v, (bool));
-			require(r, "ERR_TOKEN_TRANSFER");
+		if (l_vendBalance == UINT256_MAX) {
+			return 0;
 		}
+
+		(r, v) = _token.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_vendBalance));
+		require(r, "ERR_TOKEN");
+		r = abi.decode(v, (bool));
+		require(r, "ERR_TOKEN_TRANSFER");
+		returned[_token] += l_vendBalance;
 
 		(r, v) = controlToken.call(abi.encodeWithSignature("transfer(address,uint256)", msg.sender, l_balance));
 		require(r, "ERR_TOKEN");
@@ -125,22 +171,46 @@ contract ERC20Vend {
 		return l_balance;
 	}
 
+	// burn used vend tokens.
+	// should self-destruct contract if possible when supply reaches 0.
+	function burnFor(address _token) public returns(uint256) {
+		bool r;
+		bytes memory v;
+		uint256 l_burnValue;
+
+		l_burnValue = returned[_token];
+		(r, v) = _token.call(abi.encodeWithSignature("burn(uint256)", l_burnValue));
+		require(r, "ERR_TOKEN");
+		r = abi.decode(v, (bool));
+		require(r, "ERR_TOKEN_BURN");
+		returned[_token] = 0;
+		return l_burnValue;
+	}
+	
 	// returns UINT256_MAX if lock is inactive
-	// reverts if locked and target does not have the original balance
+	// reverts if target does not have the original balance
 	function checkLock(address _token, address _target) private returns (uint256) {
 		bool r;
 		bytes memory v;
 		uint256 l_currentBalance;
 		uint256 l_heldBalance;
 
-		if (lock) {
-			(r, v) = _token.call(abi.encodeWithSignature("balanceOf(address)", _target));
-			require(r, "ERR_TOKEN");
-			l_currentBalance = abi.decode(v, (uint256));
-			l_heldBalance = used[_target][_token];
-			require(l_currentBalance * decimalDivisor == l_heldBalance, "ERR_LOCKED");
-			return l_currentBalance;
+		(r, v) = _token.call(abi.encodeWithSignature("balanceOf(address)", _target));
+		require(r, "ERR_TOKEN");
+		l_currentBalance = abi.decode(v, (uint256));
+		l_heldBalance = used[_target][_token];
+		require(l_currentBalance * decimalDivisor == l_heldBalance, "ERR_LOCKED");
+		return l_currentBalance;
+	}
+
+	// Implements EIP165
+	function supportsInterface(bytes4 _sum) public pure returns (bool) {
+		if (_sum == 0x01ffc9a7) { // EIP165
+			return true;
 		}
-		return UINT256_MAX;
+		if (_sum == 0xabe1f1f5) { // Writer
+			return true;
+		}
+		return false;
 	}
 }

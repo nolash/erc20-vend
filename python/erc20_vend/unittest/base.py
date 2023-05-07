@@ -35,10 +35,10 @@ class TestVendCore(TestGiftableToken):
         self.token_decimals = c.parse_decimals(r)
 
 
-    def publish(self, lock=False, decimals=0):
+    def publish(self, mint=False, decimals=0):
         nonce_oracle = RPCNonceOracle(self.accounts[0], conn=self.conn)
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.constructor(self.accounts[0], self.token_address, lock=lock, decimals=decimals)
+        (tx_hash, o) = c.constructor(self.accounts[0], self.token_address, mint=mint, decimals=decimals)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)

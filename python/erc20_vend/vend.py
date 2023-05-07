@@ -36,20 +36,20 @@ class Vend(TxFactory):
     __abi = None
     __bytecode = None
 
-    def constructor(self, sender_address, token_address, decimals=0, lock=False, tx_format=TxFormat.JSONRPC, version=None):
-        code = self.cargs(token_address, decimals=decimals, lock=lock, version=version)
+    def constructor(self, sender_address, token_address, decimals=0, mint=False, tx_format=TxFormat.JSONRPC, version=None):
+        code = self.cargs(token_address, decimals=decimals, mint=mint, version=version)
         tx = self.template(sender_address, None, use_nonce=True)
         tx = self.set_code(tx, code)
         return self.finalize(tx, tx_format)
 
 
     @staticmethod
-    def cargs(token_address, decimals=0, lock=False, version=None):
+    def cargs(token_address, decimals=0, mint=False, version=None):
         code = Vend.bytecode(version=version)
         enc = ABIContractEncoder()
         enc.address(token_address)
         enc.uintn(decimals, 8)
-        enc.bool(lock)
+        enc.bool(mint)
         args = enc.get()
         code += args
         logg.debug('constructor code: ' + args)
@@ -94,9 +94,9 @@ class Vend(TxFactory):
         return tx
 
 
-    def mint_for(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
+    def get_for(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
         enc = ABIContractEncoder()
-        enc.method('mintFor')
+        enc.method('getFor')
         enc.typ(ABIContractType.ADDRESS)
         enc.address(token_address)
         data = add_0x(enc.get())
