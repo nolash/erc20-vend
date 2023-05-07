@@ -94,6 +94,32 @@ class Vend(TxFactory):
         return tx
 
 
+    def mint_for(self, contract_address, sender_address, token_address, value, tx_format=TxFormat.JSONRPC, id_generator=None):
+        enc = ABIContractEncoder()
+        enc.method('mintFor')
+        enc.typ(ABIContractType.ADDRESS)
+        enc.typ(ABIContractType.UINT256)
+        enc.address(token_address)
+        enc.uint256(value)
+        data = add_0x(enc.get())
+        tx = self.template(sender_address, contract_address, use_nonce=True)
+        tx = self.set_code(tx, data)
+        tx = self.finalize(tx, tx_format, id_generator=id_generator)
+        return tx
+
+
+    def withdraw_for(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
+        enc = ABIContractEncoder()
+        enc.method('withdrawFor')
+        enc.typ(ABIContractType.ADDRESS)
+        enc.address(token_address)
+        data = add_0x(enc.get())
+        tx = self.template(sender_address, contract_address, use_nonce=True)
+        tx = self.set_code(tx, data)
+        tx = self.finalize(tx, tx_format, id_generator=id_generator)
+        return tx
+
+
     def get_token(self, contract_address, token_idx, sender_address=ZERO_ADDRESS, id_generator=None):
         j = JSONRPCRequest(id_generator)
         o = j.template()
@@ -109,7 +135,6 @@ class Vend(TxFactory):
         o['params'].append('latest')
         o = j.finalize(o)
         return o
-
 
 
     def parse_token(self, v):

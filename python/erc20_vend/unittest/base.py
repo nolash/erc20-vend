@@ -17,21 +17,45 @@ from erc20_vend import Vend
 
 logg = logging.getLogger(__name__)
 
-class TestVend(TestGiftableToken):
+class TestVendCore(TestGiftableToken):
 
     expire = 0
 
     def setUp(self):
-        super(TestVend, self).setUp()
+        super(TestVendCore, self).setUp()
+
+        self.alice = self.accounts[1]
+        self.bob = self.accounts[2]
 
         self.token_address = self.address
 
+        c = ERC20(self.chain_spec)
+        o = c.decimals(self.token_address, sender_address=self.accounts[0])
+        r = self.rpc.do(o)
+        self.token_decimals = c.parse_decimals(r)
+
+
+    def publish(self, lock=False, decimals=0):
         nonce_oracle = RPCNonceOracle(self.accounts[0], conn=self.conn)
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.constructor(self.accounts[0], self.token_address)
+        (tx_hash, o) = c.constructor(self.accounts[0], self.token_address, lock=lock, decimals=decimals)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)
         self.assertEqual(r['status'], 1)
         self.vend_address = to_checksum_address(r['contract_address'])
         logg.debug('published vend on address {} with hash {}'.format(self.vend_address, tx_hash))
+
+
+class TestVend(TestVendCore):
+
+    def setUp(self):
+        super(TestVend, self).setUp()
+        self.publish()
+
+
+class TestVendParams(TestVendCore):
+
+    def setUp(self):
+        super(TestVendParams, self).setUp()
+        self.publish(lock=True, decimals=2)

@@ -33,6 +33,9 @@ contract ERC20Vend {
 		require(controlDecimals >= decimals);
 
 		decimalDivisor = (10 ** (controlDecimals - _decimals));
+		if (decimalDivisor == 0) {
+			decimalDivisor = 1;
+		}
 	}
 
 	function getTokenByIndex(uint256 _idx) public view returns(address) {
@@ -56,7 +59,6 @@ contract ERC20Vend {
 		GiftableToken l_token;
 		bool r;
 		bytes memory v;
-		uint256 l_balance;
 		uint256 l_ratioedValue;
 
 		require(_value < UINT256_MAX, "ERR_VALUE_TOO_HIGH");
@@ -67,7 +69,6 @@ contract ERC20Vend {
 		l_token = GiftableToken(_token);
 		require(used[msg.sender][address(_token)] == 0, "ERR_USED");
 
-		l_balance = l_token.balanceOf(msg.sender);
 		(r, v) = controlToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, _value));
 		require(r, "ERR_TOKEN");
 		r = abi.decode(v, (bool));
@@ -79,7 +80,7 @@ contract ERC20Vend {
 			l_ratioedValue = _value / decimalDivisor;
 		}
 		used[msg.sender][address(l_token)] += _value;
-		if (!l_token.mintTo(msg.sender, _value)) {
+		if (!l_token.mintTo(msg.sender, l_ratioedValue)) {
 			revert("ERR_MINT");
 		}
 		return _value;
@@ -89,13 +90,22 @@ contract ERC20Vend {
 		bool r;
 		bytes memory v;
 		uint256 l_balance;
+		uint256 l_vendBalance;
 
 		l_balance = used[msg.sender][_token];
 		if (l_balance == 0) {
 			return 0;
 		}
-		checkLock(_token, msg.sender);
+		require(used[msg.sender][_token] < UINT256_MAX, "ERR_ALREADY_WITHDRAWN");
+		l_vendBalance = checkLock(_token, msg.sender);
 		used[msg.sender][_token] = UINT256_MAX;
+
+		if (l_vendBalance < UINT256_MAX) {	
+			(r, v) = _token.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_vendBalance));
+			require(r, "ERR_TOKEN");
+			r = abi.decode(v, (bool));
+			require(r, "ERR_TOKEN_TRANSFER");
+		}
 
 		(r, v) = controlToken.call(abi.encodeWithSignature("transfer(address,uint256)", msg.sender, l_balance));
 		require(r, "ERR_TOKEN");
@@ -105,7 +115,9 @@ contract ERC20Vend {
 		return l_balance;
 	}
 
-	function checkLock(address _token, address _target) private returns (bool) {
+	// returns UINT256_MAX if lock is inactive
+	// reverts if locked and target does not have the original balance
+	function checkLock(address _token, address _target) private returns (uint256) {
 		bool r;
 		bytes memory v;
 		uint256 l_currentBalance;
@@ -116,8 +128,9 @@ contract ERC20Vend {
 			require(r, "ERR_TOKEN");
 			l_currentBalance = abi.decode(v, (uint256));
 			l_heldBalance = used[_target][_token];
-			require(l_currentBalance == l_heldBalance, "ERR_LOCKED");
+			require(l_currentBalance * decimalDivisor == l_heldBalance, "ERR_LOCKED");
+			return l_currentBalance;
 		}
-		return true;
+		return UINT256_MAX;
 	}
 }
