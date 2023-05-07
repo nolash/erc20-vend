@@ -42,7 +42,7 @@ class TestVendLocked(TestVendParams):
 
         nonce_oracle = RPCNonceOracle(self.alice, conn=self.conn)
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.mint_for(self.vend_address, self.alice, vended_token_address, src_amount)
+        (tx_hash, o) = c.mint_for(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)
@@ -56,13 +56,7 @@ class TestVendLocked(TestVendParams):
         self.assertEqual(r['status'], 1)
 
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.mint_for(self.vend_address, self.alice, vended_token_address, src_amount + 1)
-        self.rpc.do(o)
-        o = receipt(tx_hash)
-        r = self.rpc.do(o)
-        self.assertEqual(r['status'], 0)
-
-        (tx_hash, o) = c.mint_for(self.vend_address, self.alice, vended_token_address, src_amount)
+        (tx_hash, o) = c.mint_for(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)

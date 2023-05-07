@@ -55,35 +55,45 @@ contract ERC20Vend {
 		return l_address;
 	}
 
-	function mintFor(address _token, uint256 _value) public returns (uint256) {
+	function mintFor(address _token) public returns (uint256) {
 		GiftableToken l_token;
 		bool r;
 		bytes memory v;
 		uint256 l_ratioedValue;
+		uint256 l_controlBalance;
 
-		require(_value < UINT256_MAX, "ERR_VALUE_TOO_HIGH");
-		if (_value == 0) {
+		l_token = GiftableToken(_token);
+
+		require(used[msg.sender][address(_token)] == 0, "ERR_USED");
+
+		(r, v) = controlToken.call(abi.encodeWithSignature("balanceOf(address)", msg.sender));
+		require(r, "ERR_TOKEN");
+		l_controlBalance = abi.decode(v, (uint256));
+
+		require(l_controlBalance < UINT256_MAX, "ERR_VALUE_TOO_HIGH");
+		if (l_controlBalance == 0) {
 			return 0;
 		}
 
-		l_token = GiftableToken(_token);
-		require(used[msg.sender][address(_token)] == 0, "ERR_USED");
-
-		(r, v) = controlToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, _value));
-		require(r, "ERR_TOKEN");
-		r = abi.decode(v, (bool));
-		require(r, "ERR_TOKEN_TRANSFER");
+		if (lock) {
+			(r, v) = controlToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_controlBalance));
+			require(r, "ERR_TOKEN");
+			r = abi.decode(v, (bool));
+			require(r, "ERR_TOKEN_TRANSFER");
+			used[msg.sender][address(l_token)] = l_controlBalance;
+		} else {
+			used[msg.sender][address(l_token)] = UINT256_MAX;
+		}
 
 		if (decimalDivisor == 0) {
-			l_ratioedValue = _value;
+			l_ratioedValue = l_controlBalance;
 		} else {
-			l_ratioedValue = _value / decimalDivisor;
+			l_ratioedValue = l_controlBalance / decimalDivisor;
 		}
-		used[msg.sender][address(l_token)] += _value;
 		if (!l_token.mintTo(msg.sender, l_ratioedValue)) {
 			revert("ERR_MINT");
 		}
-		return _value;
+		return l_ratioedValue;
 	}
 
 	function withdrawFor(address _token) public returns (uint256) {

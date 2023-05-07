@@ -94,13 +94,11 @@ class Vend(TxFactory):
         return tx
 
 
-    def mint_for(self, contract_address, sender_address, token_address, value, tx_format=TxFormat.JSONRPC, id_generator=None):
+    def mint_for(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
         enc = ABIContractEncoder()
         enc.method('mintFor')
         enc.typ(ABIContractType.ADDRESS)
-        enc.typ(ABIContractType.UINT256)
         enc.address(token_address)
-        enc.uint256(value)
         data = add_0x(enc.get())
         tx = self.template(sender_address, contract_address, use_nonce=True)
         tx = self.set_code(tx, data)
