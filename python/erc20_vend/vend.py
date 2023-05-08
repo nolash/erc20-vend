@@ -141,3 +141,20 @@ class Vend(TxFactory):
         dec.val(v)
         r = dec.get()
         return r[0]
+
+
+
+def bytecode(**kwargs):
+    return Voter.bytecode(version=kwargs.get('version'))
+
+
+def create(**kwargs):
+    return Voter.cargs(kwargs['token_address'], decimals=kwargs.get('decimals'), mint=kwargs.get('mint'), version=kwargs.get('version'))
+
+
+def args(v):
+    if v == 'create':
+        return (['token_address'], ['decimals', 'mint'],)
+    elif v == 'default' or v == 'bytecode':
+        return ([], ['version'],)
+    raise ValueError('unknown command: ' + v)

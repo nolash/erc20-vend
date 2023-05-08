@@ -171,21 +171,21 @@ contract ERC20Vend {
 		return l_balance;
 	}
 
-	// burn used vend tokens.
-	// should self-destruct contract if possible when supply reaches 0.
-	function burnFor(address _token) public returns(uint256) {
-		bool r;
-		bytes memory v;
-		uint256 l_burnValue;
-
-		l_burnValue = returned[_token];
-		(r, v) = _token.call(abi.encodeWithSignature("burn(uint256)", l_burnValue));
-		require(r, "ERR_TOKEN");
-		r = abi.decode(v, (bool));
-		require(r, "ERR_TOKEN_BURN");
-		returned[_token] = 0;
-		return l_burnValue;
-	}
+//	// burn used vend tokens.
+//	// should self-destruct contract if possible when supply reaches 0.
+//	function burnFor(address _token) public returns(uint256) {
+//		bool r;
+//		bytes memory v;
+//		uint256 l_burnValue;
+//
+//		l_burnValue = returned[_token];
+//		(r, v) = _token.call(abi.encodeWithSignature("burn(uint256)", l_burnValue));
+//		require(r, "ERR_TOKEN");
+//		r = abi.decode(v, (bool));
+//		require(r, "ERR_TOKEN_BURN");
+//		returned[_token] = 0;
+//		return l_burnValue;
+//	}
 	
 	// returns UINT256_MAX if lock is inactive
 	// reverts if target does not have the original balance
