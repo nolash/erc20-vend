@@ -23,6 +23,7 @@ from hexathon import (
     add_0x,
     strip_0x,
 )
+from chainlib.eth.cli.encode import CLIEncoder
 
 # local imports
 from erc20_vend.data import data_dir
@@ -143,13 +144,17 @@ class Vend(TxFactory):
         return r[0]
 
 
-
 def bytecode(**kwargs):
-    return Voter.bytecode(version=kwargs.get('version'))
+    return Vend.bytecode(version=kwargs.get('version'))
 
 
 def create(**kwargs):
-    return Voter.cargs(kwargs['token_address'], decimals=kwargs.get('decimals'), mint=kwargs.get('mint'), version=kwargs.get('version'))
+    enc = CLIEncoder()
+    (typ, token_address) = enc.translate('a', strip_0x(kwargs['token_address']))
+    decimals = kwargs.get('decimals', 0)
+    if decimals != None:
+        (typ, decimals) = enc.translate('u', decimals)
+    return Vend.cargs(token_address, decimals=decimals, mint=kwargs.get('mint'), version=kwargs.get('version'))
 
 
 def args(v):

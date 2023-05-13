@@ -1,2 +1,2 @@
 eth-erc20~=0.7.3
-chainlib-eth~=0.4.19
+chainlib-eth~=0.4.22

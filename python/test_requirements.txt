@@ -1,3 +1,4 @@
 eth_tester==0.5.0b3
 py-evm==0.3.0a20
 eth-interface==0.1.1
+eth-writer==0.0.1
