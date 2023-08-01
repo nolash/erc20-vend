@@ -63,7 +63,7 @@ class TestVendBase(TestVend):
 
         nonce_oracle = RPCNonceOracle(self.alice, conn=self.conn)
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.get_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.deposit(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)
@@ -77,7 +77,7 @@ class TestVendBase(TestVend):
         self.assertEqual(r['status'], 1)
 
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.get_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.deposit(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)
@@ -95,7 +95,7 @@ class TestVendBase(TestVend):
         self.assertEqual(balance, 0)
 
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.withdraw_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.withdraw(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)
@@ -106,7 +106,7 @@ class TestVendBase(TestVend):
         self.rpc.do(o)
 
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.withdraw_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.withdraw(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)

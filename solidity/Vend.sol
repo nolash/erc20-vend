@@ -91,7 +91,8 @@ contract ERC20Vend {
 	}
 
 	// Receive the vended token for the currently held balance.
-	function getFor(address _token) public returns (uint256) {
+	//function getFor(address _token) public returns (uint256) {
+	function deposit(address _token) public returns (uint256) {
 		GiftableToken l_token;
 		bool r;
 		bytes memory v;
@@ -139,7 +140,8 @@ contract ERC20Vend {
 	// If contract locks exchanged tokens, this can be called to retrieve the locked tokens.
 	// The vended token balance MUST match the original balance emitted on the exchange.
 	// The caller must have given allowance for the full amount.
-	function withdrawFor(address _token) public returns (uint256) {
+	//function withdrawFor(address _token) public returns (uint256) {
+	function withdraw(address _token) public returns (uint256) {
 		bool r;
 		bytes memory v;
 		uint256 l_balance;

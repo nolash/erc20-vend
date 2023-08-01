@@ -65,7 +65,7 @@ class TestVendBase(TestVendCore):
 
         nonce_oracle = RPCNonceOracle(self.alice, conn=self.conn)
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.get_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.deposit(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)
@@ -132,7 +132,7 @@ class TestVendBase(TestVendCore):
         self.rpc.do(o)
 
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.get_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.deposit(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
         o = receipt(tx_hash)
         r = self.rpc.do(o)

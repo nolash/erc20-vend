@@ -68,7 +68,7 @@ class TestVendBase(TestVendCore):
         self.rpc.do(o)
 
         c = Vend(self.chain_spec, signer=self.signer, nonce_oracle=nonce_oracle)
-        (tx_hash, o) = c.get_for(self.vend_address, self.alice, vended_token_address)
+        (tx_hash, o) = c.deposit(self.vend_address, self.alice, vended_token_address)
         self.rpc.do(o)
 
         c = ERC20(self.chain_spec)
