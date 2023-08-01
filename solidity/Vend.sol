@@ -22,6 +22,7 @@ contract ERC20Vend {
 	mapping(address => bool) writers;
 
 	event TokenCreated(uint256 indexed _idx, uint256 indexed _supply, address _token);
+	event Mint(address indexed _minter, address indexed _beneficiary, address indexed _token, uint256 value);
 
 	constructor(address _controlToken, uint8 _decimals, bool _mint) {
 		bool r;
@@ -87,6 +88,7 @@ contract ERC20Vend {
 			l_contract.mintTo(address(this), supply);
 		}
 		emit TokenCreated(l_idx, supply, l_address);
+		emit Mint(msg.sender, msg.sender, l_address, supply);
 		return l_address;
 	}
 
