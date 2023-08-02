@@ -95,12 +95,13 @@ class Vend(TxFactory):
         return tx
 
 
-    #def get_for(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
     def deposit(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
         enc = ABIContractEncoder()
         enc.method('deposit')
         enc.typ(ABIContractType.ADDRESS)
+        enc.typ(ABIContractType.UINT256)
         enc.address(token_address)
+        enc.uint256(0)
         data = add_0x(enc.get())
         tx = self.template(sender_address, contract_address, use_nonce=True)
         tx = self.set_code(tx, data)
@@ -108,13 +109,13 @@ class Vend(TxFactory):
         return tx
 
 
-    #def withdraw_for(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
     def withdraw(self, contract_address, sender_address, token_address, tx_format=TxFormat.JSONRPC, id_generator=None):
         enc = ABIContractEncoder()
-        #enc.method('withdrawFor')
         enc.method('withdraw')
         enc.typ(ABIContractType.ADDRESS)
+        enc.typ(ABIContractType.UINT256)
         enc.address(token_address)
+        enc.uint256(0)
         data = add_0x(enc.get())
         tx = self.template(sender_address, contract_address, use_nonce=True)
         tx = self.set_code(tx, data)

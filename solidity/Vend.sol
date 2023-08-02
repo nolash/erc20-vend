@@ -10,7 +10,10 @@ import "GiftableToken.sol";
 contract ERC20Vend {
 	address owner;
 	uint256 constant UINT256_MAX = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-	address controlToken;
+
+	// Implements TokenSwap
+	address public defaultToken;
+
 	uint8 controlDecimals;
 	uint8 decimals;
 	uint256 supply;
@@ -24,20 +27,20 @@ contract ERC20Vend {
 	event TokenCreated(uint256 indexed _idx, uint256 indexed _supply, address _token);
 	event Mint(address indexed _minter, address indexed _beneficiary, address indexed _token, uint256 value);
 
-	constructor(address _controlToken, uint8 _decimals, bool _mint) {
+	constructor(address _defaultToken, uint8 _decimals, bool _mint) {
 		bool r;
 		bytes memory v;
 
-		controlToken = _controlToken;
+		defaultToken = _defaultToken;
 		decimals = _decimals;
 
-		(r, v) = controlToken.call(abi.encodeWithSignature("decimals()"));
+		(r, v) = defaultToken.call(abi.encodeWithSignature("decimals()"));
 		require(r, "ERR_TOKEN");
 		controlDecimals = abi.decode(v, (uint8));
 		require(controlDecimals >= decimals);
 
 		if (!_mint) {
-			(r, v) = controlToken.call(abi.encodeWithSignature("totalSupply()"));
+			(r, v) = defaultToken.call(abi.encodeWithSignature("totalSupply()"));
 			require(r, "ERR_TOKEN");
 			supply = abi.decode(v, (uint256));
 		}
@@ -93,8 +96,7 @@ contract ERC20Vend {
 	}
 
 	// Receive the vended token for the currently held balance.
-	//function getFor(address _token) public returns (uint256) {
-	function deposit(address _token) public returns (uint256) {
+	function deposit(address _token, uint256 _value) public returns (uint256) {
 		GiftableToken l_token;
 		bool r;
 		bytes memory v;
@@ -105,16 +107,20 @@ contract ERC20Vend {
 
 		require(used[msg.sender][address(_token)] == 0, "ERR_USED");
 
-		(r, v) = controlToken.call(abi.encodeWithSignature("balanceOf(address)", msg.sender));
-		require(r, "ERR_TOKEN");
-		l_controlBalance = abi.decode(v, (uint256));
+		if (_value > 0) {
+			l_controlBalance = _value;
+		} else {
+			(r, v) = defaultToken.call(abi.encodeWithSignature("balanceOf(address)", msg.sender));
+			require(r, "ERR_TOKEN");
+			l_controlBalance = abi.decode(v, (uint256));
 
-		require(l_controlBalance < UINT256_MAX, "ERR_VALUE_TOO_HIGH");
-		if (l_controlBalance == 0) {
-			return 0;
+			require(l_controlBalance < UINT256_MAX, "ERR_VALUE_TOO_HIGH");
+			if (l_controlBalance == 0) {
+				return 0;
+			}
 		}
 
-		(r, v) = controlToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_controlBalance));
+		(r, v) = defaultToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_controlBalance));
 		require(r, "ERR_TOKEN");
 		r = abi.decode(v, (bool));
 		require(r, "ERR_TOKEN_TRANSFER");
@@ -142,12 +148,15 @@ contract ERC20Vend {
 	// If contract locks exchanged tokens, this can be called to retrieve the locked tokens.
 	// The vended token balance MUST match the original balance emitted on the exchange.
 	// The caller must have given allowance for the full amount.
-	//function withdrawFor(address _token) public returns (uint256) {
-	function withdraw(address _token) public returns (uint256) {
+	function withdraw(address _token, uint256 _value) public returns (uint256) {
 		bool r;
 		bytes memory v;
 		uint256 l_balance;
 		uint256 l_vendBalance;
+
+		if (_token == defaultToken) {
+			return deposit(_token, _value);
+		}
 
 		l_balance = used[msg.sender][_token];
 		if (l_balance == 0) {
@@ -161,19 +170,34 @@ contract ERC20Vend {
 			return 0;
 		}
 
+		if (_value > 0) {
+			require(l_vendBalance == _value, "ERR_VALUE_MISMATCH");
+		}
+
 		(r, v) = _token.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, this, l_vendBalance));
 		require(r, "ERR_TOKEN");
 		r = abi.decode(v, (bool));
 		require(r, "ERR_TOKEN_TRANSFER");
 		returned[_token] += l_vendBalance;
 
-		(r, v) = controlToken.call(abi.encodeWithSignature("transfer(address,uint256)", msg.sender, l_balance));
+		(r, v) = defaultToken.call(abi.encodeWithSignature("transfer(address,uint256)", msg.sender, l_balance));
 		require(r, "ERR_TOKEN");
 		r = abi.decode(v, (bool));
 		require(r, "ERR_TOKEN_TRANSFER");
 
 		return l_balance;
 	}
+
+	// Implements TokenSwap
+	// Will always revert, as sync swap is not valid in this implementation.
+	function withdraw(address _outToken, address _inToken, uint256 _value) public pure returns (uint256) {
+		_outToken;
+		_inToken;
+		_value;
+		require(1 == 0, "ERR_NO_SYNC_SWAP");
+		return 0;
+	}
+
 
 //	// burn used vend tokens.
 //	// should self-destruct contract if possible when supply reaches 0.
@@ -213,6 +237,9 @@ contract ERC20Vend {
 			return true;
 		}
 		if (_sum == 0xabe1f1f5) { // Writer
+			return true;
+		}
+		if (_sum == 0x4146b765) { // TokenSwap
 			return true;
 		}
 		return false;
